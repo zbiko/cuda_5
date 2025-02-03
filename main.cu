@@ -5,16 +5,13 @@
 
 __global__ void sleepKernel(int seconds) {
     // Calculate the time to stop (in clock cycles)
-    clock_t start = clock();
-    clock_t end = start + seconds * GPU_FREQ;
-
+    clock_t end = clock() + seconds * GPU_FREQ;
     // Spin-wait until the required time has passed
     while (clock() < end);
 }
 
 __global__ void accessMemory(CUdeviceptr d_data)
 {
-
     // Sleep a while
     clock_t end = clock() + 1 * GPU_FREQ / 2;
     while (clock() < end);
@@ -45,13 +42,18 @@ int main() {
     CUevent ctxEvent;
     cuEventCreate(&ctxEvent, CU_EVENT_DEFAULT);
 
-    cuMemAllocAsync(&d_data, 2 * size * sizeof(int), stream1);  // schedule allocation on stream1
-    sleepKernel<<<1,1,0,stream1>>>(1);    // schedule sleep for 1 second on stream1
+    // schedule allocation on stream1
+    cuMemAllocAsync(&d_data, 2 * size * sizeof(int), stream1);
+    // schedule sleep for 1 second on stream1
+    sleepKernel<<<1,1,0,stream1>>>(1);
     cuCtxRecordEvent(ctx, ctxEvent);
-    sleepKernel<<<1,1,0,stream2>>>(1);    // schedule sleep for 1 second on stream2
+    // schedule sleep for 1 second on stream2
+    sleepKernel<<<1,1,0,stream2>>>(1);
     cuCtxWaitEvent(ctx, ctxEvent);
-    accessMemory<<<1,1,0,stream2>>>(d_data);       // schedule access the memory on stream2 (should by synchronised with allocation)
-    cuMemFreeAsync(d_data, stream2);                                      // schedule free the memory on stream2
+    // schedule access the memory on stream2 (should by synchronised with allocation)
+    accessMemory<<<1,1,0,stream2>>>(d_data);
+    // schedule free the memory on stream2
+    cuMemFreeAsync(d_data, stream2);
 
     // Cleanup
     cuCtxSynchronize();
